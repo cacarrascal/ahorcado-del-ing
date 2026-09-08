@@ -1,0 +1,1330 @@
+/* ARCHIVO GENERADO POR build.py — NO EDITAR A MANO.
+   Las fuentes están en src/; corre  py build.py  para regenerarlo. */
+/**
+ * AHORCADO DEL ING — juego para LIVE de TikTok
+ * Un solo archivo React + Tailwind. Sin dependencias externas más allá de React.
+ * Todo el estado vive en useReducer/useState: no se usa localStorage ni sessionStorage.
+ *
+ * Uso: <JuegoAhorcadoDelIng /> a pantalla completa. La tecla O muestra u oculta
+ * el panel del operador; el panel lista todos los atajos.
+ */
+import React, { useState, useReducer, useEffect, useRef, useMemo, useCallback } from "react";
+
+/* ══════════════════════════════════════════════════════════════════
+   CONTENIDO
+   ══════════════════════════════════════════════════════════════════ */
+
+const VIDAS_MAX = 6;
+// Alto del escenario que NO tapa el chat de TikTok: todo lo que deba salir
+// en cámara vive dentro de esta franja.
+const ZONA_SEGURA = 672;
+const LLAVES = ["", "verde", "magenta"];   // ciclo del fondo chroma
+const ABC = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+
+// Escala colombiana: 5.0 arriba, 3.0 es la raya de pasar.
+const NOTAS = ["5.0", "4.3", "3.6", "3.0", "2.2", "1.1", "0.0"];
+
+/* ── Crédito del pie ──────────────────────────────────────────────── */
+const CREDITO = {
+  autor: "Desarrollado por Carlos Carrascal"
+};
+// El logo va incrustado como data URI: la página no depende de ningún archivo
+// externo y se ve igual sin conexión o dentro de OBS.
+const LOGO = "data:image/png;base64,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";
+
+const CATEGORIAS = [
+  {
+    nombre: "MATERIAS DEL INFIERNO",
+    emoji: "🔥",
+    palabras: [
+      "cálculo diferencial", "termodinámica", "ecuaciones diferenciales",
+      "álgebra lineal", "resistencia de materiales", "mecánica de fluidos",
+      "química orgánica", "física de ondas", "cálculo vectorial",
+      "métodos numéricos", "circuitos eléctricos", "transferencia de calor",
+      "estática", "dibujo técnico", "probabilidad y estadística"
+    ]
+  },
+  {
+    nombre: "EXCUSAS DE ESTUDIANTE",
+    emoji: "🙃",
+    palabras: [
+      "se me borró el usb", "no había internet", "se fue la luz",
+      "el trancón", "me quedé sin datos", "el archivo se corrompió",
+      "pensé que era para mañana", "no me llegó el correo",
+      "se me olvidó la clave", "la plataforma no cargó",
+      "mi grupo no hizo nada", "el computador se apagó",
+      "perdí el bus", "se dañó la impresora", "estaba enfermo"
+    ]
+  },
+  {
+    nombre: "JERGA DE INGENIERÍA",
+    emoji: "📐",
+    palabras: [
+      "supletorio", "habilitación", "parcial", "monitoría", "quiz sorpresa",
+      "sustentación", "laboratorio", "semillero", "prerrequisito",
+      "tercer corte", "cancelar la materia", "trabajo de grado",
+      "práctica empresarial", "nivelatorio", "arrastrar la materia"
+    ]
+  },
+  {
+    nombre: "PROFES QUE TODOS TUVIMOS",
+    emoji: "🎓",
+    palabras: [
+      "el que no deja entrar tarde", "el que graba la clase",
+      "el que nunca sube notas", "el que pone quiz sorpresa",
+      "el que llega tarde siempre", "el que borra muy rápido",
+      "el que habla de su tesis", "el que no usa diapositivas",
+      "el que manda taller el viernes", "el que raja a todos",
+      "el que da puntos por asistencia", "el que odia la calculadora",
+      "el que cuenta anécdotas", "el que devuelve el parcial tarde",
+      "el que se sabe todo de memoria"
+    ]
+  },
+  {
+    nombre: "EL MORRAL DEL INGENIERO",
+    emoji: "🎒",
+    palabras: [
+      "calculadora científica", "protoboard", "multímetro", "portaminas",
+      "tabla periódica", "bata de laboratorio", "casco", "cautín",
+      "cinta métrica", "escuadra", "memoria usb", "termo de café",
+      "plano arquitectónico", "regla de cálculo", "papel milimetrado"
+    ]
+  }
+];
+
+const FRASES = {
+  fallo: [
+    "Eso vale 0.5",
+    "Esa letra no aparece ni en el supletorio",
+    "Suave, que todavía hay tercer corte",
+    "No, señor. Siguiente.",
+    "Esa la vimos la clase que faltaste",
+    "Con esa respuesta no pasa ni la habilitación",
+    "Ojo que la nota va bajando",
+    "En el parcial eso es media hoja tachada",
+    "Casi. Pero casi no da nota.",
+    "Le voy a tener que llamar al acudiente"
+  ],
+  perder: [
+    "Nos vemos en el supletorio",
+    "Habilitación el sábado a las 7 de la mañana",
+    "La respuesta estaba en la diapositiva 3",
+    "Cierro notas hoy, no me escriban",
+    "Esto sale en el final, apunten",
+    "Le pongo 2.9 para que le duela",
+    "Y todavía faltan dos cortes, tranquilos",
+    "El chat perdió, pero aprendió. Supuestamente."
+  ],
+  ganar: [
+    "Hoy amanecí de buenas",
+    "Cinco limpio, felicitaciones",
+    "Eso sí es un chat que estudió",
+    "Les subo décimas a todos",
+    "Con ese nivel les cancelo el parcial",
+    "Y sin calculadora, impresionante",
+    "Anoten que hoy el chat me ganó",
+    "Eso vale como nota de laboratorio"
+  ]
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   UTILIDADES
+   ══════════════════════════════════════════════════════════════════ */
+
+// Quita tildes pero conserva la Ñ como letra propia.
+function norm(s) {
+  return String(s)
+    .toUpperCase()
+    .replace(/Ñ/g, "¤")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/¤/g, "Ñ");
+}
+const esLetra = (c) => ABC.indexOf(norm(c)) >= 0;
+const soloLetras = (s) => norm(s).replace(/[^A-ZÑ]/g, "");
+
+function barajar(a) {
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = b[i]; b[i] = b[j]; b[j] = t;
+  }
+  return b;
+}
+const elegir = (a) => a[Math.floor(Math.random() * a.length)];
+
+const limpiarNombre = (n) =>
+  String(n || "").trim().replace(/^@+/, "").replace(/\s+/g, " ").slice(0, 18);
+
+function contarEn(palabra, L) {
+  let n = 0;
+  for (const c of palabra) if (norm(c) === L) n++;
+  return n;
+}
+function resuelto(palabra, acertadas) {
+  for (const c of palabra) {
+    if (esLetra(c) && acertadas.indexOf(norm(c)) < 0) return false;
+  }
+  return true;
+}
+function todasLasLetras(palabra) {
+  const s = [];
+  for (const c of palabra) {
+    const n = norm(c);
+    if (esLetra(c) && s.indexOf(n) < 0) s.push(n);
+  }
+  return s;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ESTADO DEL JUEGO
+   ══════════════════════════════════════════════════════════════════ */
+
+function siguientePalabra(st) {
+  const colas = st.colas.map((q) => q.slice());
+  let q = colas[st.ci];
+  if (!q.length) q = barajar(st.cats[st.ci].palabras.map((_, i) => i));
+  const idx = q.shift();
+  colas[st.ci] = q;
+  return {
+    ...st,
+    colas,
+    palabra: st.cats[st.ci].palabras[idx],
+    acertadas: [],
+    falladas: [],
+    vidas: VIDAS_MAX,
+    estado: "jugando",
+    frase: "",
+    cerro: null,
+    evento: null,
+    aviso: null
+  };
+}
+
+function inicial() {
+  const cats = CATEGORIAS.map((c) => ({ ...c, palabras: c.palabras.slice() }));
+  return siguientePalabra({
+    cats,
+    colas: cats.map((c) => barajar(c.palabras.map((_, i) => i))),
+    ci: 0,
+    palabra: "",
+    acertadas: [],
+    falladas: [],
+    vidas: VIDAS_MAX,
+    estado: "jugando",
+    marcador: { chat: 0, profe: 0 },
+    lideres: {},
+    evento: null,
+    aviso: null,
+    frase: "",
+    cerro: null,
+    n: 0
+  });
+}
+
+function premiar(lideres, nombre, pts, tipo) {
+  const disp = limpiarNombre(nombre) || "El chat";
+  const clave = disp.toLowerCase();
+  const prev = lideres[clave] || { nombre: disp, pts: 0, letras: 0, palabras: 0 };
+  return {
+    ...lideres,
+    [clave]: {
+      nombre: disp,
+      pts: prev.pts + pts,
+      letras: prev.letras + (tipo === "L" ? 1 : 0),
+      palabras: prev.palabras + (tipo === "P" ? 1 : 0)
+    }
+  };
+}
+
+function reducer(st, act) {
+  const n = st.n + 1;
+
+  switch (act.type) {
+
+    case "LETRA": {
+      if (st.estado !== "jugando") return st;
+      const L = norm(act.letra || "").charAt(0);
+      if (!L || ABC.indexOf(L) < 0) return st;
+      if (st.acertadas.indexOf(L) >= 0 || st.falladas.indexOf(L) >= 0) {
+        return { ...st, n, aviso: { texto: "La " + L + " ya salió", id: n } };
+      }
+      const veces = contarEn(st.palabra, L);
+      const quien = limpiarNombre(act.nombre) || "El chat";
+
+      if (veces > 0) {
+        const acertadas = st.acertadas.concat([L]);
+        const lideres = premiar(st.lideres, quien, 10, "L");
+        const gano = resuelto(st.palabra, acertadas);
+        return {
+          ...st, n, acertadas, lideres, aviso: null,
+          evento: { tipo: "acierto", letra: L, nombre: quien, veces, id: n },
+          estado: gano ? "ganada" : "jugando",
+          cerro: gano ? quien : null,
+          frase: gano ? elegir(FRASES.ganar) : "",
+          marcador: gano ? { ...st.marcador, chat: st.marcador.chat + 1 } : st.marcador
+        };
+      }
+
+      const falladas = st.falladas.concat([L]);
+      const vidas = st.vidas - 1;
+      const perdio = vidas <= 0;
+      return {
+        ...st, n, falladas, vidas, aviso: null,
+        evento: {
+          tipo: "fallo", letra: L, nombre: quien, id: n,
+          frase: perdio ? "" : elegir(FRASES.fallo)
+        },
+        estado: perdio ? "perdida" : "jugando",
+        frase: perdio ? elegir(FRASES.perder) : "",
+        marcador: perdio ? { ...st.marcador, profe: st.marcador.profe + 1 } : st.marcador
+      };
+    }
+
+    case "REGALO": {
+      if (st.estado !== "jugando") return st;
+      const faltan = todasLasLetras(st.palabra).filter((L) => st.acertadas.indexOf(L) < 0);
+      if (!faltan.length) return st;
+      const L = elegir(faltan);
+      const acertadas = st.acertadas.concat([L]);
+      const gano = resuelto(st.palabra, acertadas);
+      const quien = limpiarNombre(act.nombre);
+      return {
+        ...st, n, acertadas, aviso: null,
+        evento: { tipo: "regalo", letra: L, nombre: quien, id: n },
+        estado: gano ? "ganada" : "jugando",
+        cerro: gano ? (quien || "El chat") : null,
+        frase: gano ? elegir(FRASES.ganar) : "",
+        marcador: gano ? { ...st.marcador, chat: st.marcador.chat + 1 } : st.marcador
+      };
+    }
+
+    case "PALABRA": {
+      if (st.estado !== "jugando") return st;
+      const intento = soloLetras(act.palabra || "");
+      if (!intento) return st;
+      const quien = limpiarNombre(act.nombre) || "El chat";
+
+      if (intento === soloLetras(st.palabra)) {
+        return {
+          ...st, n,
+          acertadas: todasLasLetras(st.palabra),
+          lideres: premiar(st.lideres, quien, 50, "P"),
+          estado: "ganada",
+          cerro: quien,
+          frase: elegir(FRASES.ganar),
+          marcador: { ...st.marcador, chat: st.marcador.chat + 1 },
+          evento: { tipo: "palabra", nombre: quien, id: n },
+          aviso: null
+        };
+      }
+      const vidas = st.vidas - 1;
+      const perdio = vidas <= 0;
+      return {
+        ...st, n, vidas,
+        evento: {
+          tipo: "fallo-palabra", nombre: quien, texto: act.palabra, id: n,
+          frase: perdio ? "" : elegir(FRASES.fallo)
+        },
+        estado: perdio ? "perdida" : "jugando",
+        frase: perdio ? elegir(FRASES.perder) : "",
+        marcador: perdio ? { ...st.marcador, profe: st.marcador.profe + 1 } : st.marcador,
+        aviso: null
+      };
+    }
+
+    case "NUEVA":
+      return siguientePalabra({ ...st, n });
+
+    case "CATEGORIA": {
+      const ci = ((act.ci % st.cats.length) + st.cats.length) % st.cats.length;
+      return siguientePalabra({ ...st, n, ci });
+    }
+
+    case "REINICIAR_RONDA":
+      return {
+        ...st, n, acertadas: [], falladas: [], vidas: VIDAS_MAX,
+        estado: "jugando", frase: "", cerro: null, evento: null,
+        aviso: { texto: "Ronda reiniciada", id: n }
+      };
+
+    case "REINICIAR_PARTIDA": {
+      // Las palabras agregadas en vivo se conservan; el marcador y la tabla se van a cero.
+      const base = {
+        ...st, n,
+        colas: st.cats.map((c) => barajar(c.palabras.map((_, i) => i))),
+        marcador: { chat: 0, profe: 0 },
+        lideres: {}
+      };
+      const ns = siguientePalabra(base);
+      return { ...ns, aviso: { texto: "Partida nueva: marcador en 0", id: n } };
+    }
+
+    case "AGREGAR": {
+      // Tope de largo: una frase enorme rompería el encuadre en vivo.
+      const texto = String(act.palabra || "").trim().replace(/\s+/g, " ").slice(0, 44);
+      if (!soloLetras(texto)) return st;
+      const ci = act.ci;
+      const cats = st.cats.map((c, i) =>
+        i === ci ? { ...c, palabras: c.palabras.concat([texto]) } : c
+      );
+      const colas = st.colas.map((q, i) =>
+        i === ci ? [cats[ci].palabras.length - 1].concat(q) : q
+      );
+      return {
+        ...st, n, cats, colas,
+        aviso: { texto: "«" + texto + "» entra en la próxima", id: n }
+      };
+    }
+
+    case "LIMPIAR_EVENTO":
+      return st.evento && st.evento.id === act.id ? { ...st, evento: null } : st;
+
+    case "LIMPIAR_AVISO":
+      return st.aviso && st.aviso.id === act.id ? { ...st, aviso: null } : st;
+
+    default:
+      return st;
+  }
+}
+
+/* ═══ ESTILOS ═════════════════════════
+   Pizarrón, tiza y animaciones. Se inyecta como una sola etiqueta <style>.
+   ════════════════════════════════════════ */
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@600;700;800&family=Caveat:wght@700&display=swap');
+
+  /* Todo cuelga de .ahorcado: así el componente no repinta el <body>
+     del proyecto que lo hospede. */
+  .ahorcado{
+    --pizarron:#0F1F19;
+    --pizarron-alto:#18332B;
+    --pizarron-hondo:#0A1611;
+    --tiza:#F2EDDC;
+    --tiza-tenue:#9DB3A9;
+    --amarillo:#FFD028;
+    --verde:#2FD46E;
+    --rojo:#FF3B4E;
+    --linea:#2C4A3F;
+    background:var(--pizarron-hondo);
+    color:var(--tiza);
+    font-family:'Archivo','Segoe UI',system-ui,sans-serif;
+    font-weight:700;
+    overflow:hidden;
+  }
+  .display{font-family:'Archivo Black','Archivo Black Fallback','Segoe UI',system-ui,sans-serif;font-weight:400;letter-spacing:.01em;}
+  .tiza-mano{font-family:'Caveat','Segoe Script',cursive;font-weight:700;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* Textura de pizarrón: polvo de tiza, no un degradado plano */
+  .pizarron{
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.07), rgba(255,255,255,0) 60%),
+      radial-gradient(90% 60% at 15% 85%, rgba(255,255,255,.05), rgba(255,255,255,0) 70%),
+      var(--pizarron);
+  }
+  /* Dos llaves: el verde que pediste, y magenta por si el verde de la interfaz
+     (vidas, nota, aciertos) se recorta junto con el fondo en OBS. */
+  .chroma-verde{background:#00B140 !important;}
+  .chroma-magenta{background:#FF00FF !important;}
+
+  .marco{border:3px solid var(--linea);}
+  .panel{background:var(--pizarron-alto);border:3px solid var(--linea);}
+
+  /* ---- animaciones del show ---- */
+  @keyframes pop{0%{transform:scale(.3);opacity:0}55%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
+  @keyframes revelar{0%{transform:rotateX(90deg) scale(.4);opacity:0}55%{transform:rotateX(0) scale(1.35)}100%{transform:rotateX(0) scale(1);opacity:1}}
+  @keyframes sacudir{0%,100%{transform:translateX(0)}15%{transform:translateX(-14px)}30%{transform:translateX(13px)}45%{transform:translateX(-9px)}60%{transform:translateX(8px)}80%{transform:translateX(-4px)}}
+  @keyframes banner{0%{transform:translateY(26px) scale(.7);opacity:0}12%{transform:translateY(0) scale(1.12);opacity:1}20%{transform:scale(1)}86%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.94)}}
+  @keyframes latido{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}
+  @keyframes sello{0%{transform:rotate(-14deg) scale(3.4);opacity:0}55%{transform:rotate(-14deg) scale(.86);opacity:1}100%{transform:rotate(-14deg) scale(1);opacity:1}}
+  @keyframes caer{0%{transform:translateY(-60px) rotate(0deg);opacity:1}100%{transform:translateY(700px) rotate(680deg);opacity:0}}
+  @keyframes brillo{0%,100%{filter:drop-shadow(0 0 0 rgba(47,212,110,0))}50%{filter:drop-shadow(0 0 22px rgba(47,212,110,.95))}}
+  @keyframes subir{0%{transform:translateY(18px);opacity:0}100%{transform:translateY(0);opacity:1}}
+  @keyframes flash{0%{opacity:.55}100%{opacity:0}}
+
+  .a-pop{animation:pop .34s cubic-bezier(.2,1.5,.4,1) both}
+  .a-revelar{animation:revelar .5s cubic-bezier(.2,1.4,.4,1) both}
+  .a-sacudir{animation:sacudir .5s ease both}
+  .a-banner{animation:banner 3.6s ease-out both}
+  .a-latido{animation:latido .45s ease both}
+  .a-sello{animation:sello .55s cubic-bezier(.2,1.3,.4,1) both}
+  .a-brillo{animation:brillo 1.1s ease-in-out infinite}
+  .a-subir{animation:subir .35s ease both}
+  .a-flash{animation:flash .45s ease-out both}
+
+  .confeti{position:absolute;top:-40px;border-radius:2px;animation-name:caer;animation-timing-function:linear;animation-fill-mode:both}
+
+  .ahorcado input,.ahorcado select,.ahorcado button{font-family:inherit;font-weight:700}
+  .ahorcado input,.ahorcado select{background:var(--pizarron-hondo);border:2px solid var(--linea);color:var(--tiza);border-radius:10px;outline:none}
+  .ahorcado input:focus,.ahorcado select:focus,.ahorcado button:focus-visible{border-color:var(--amarillo);box-shadow:0 0 0 3px rgba(255,208,40,.35)}
+  .ahorcado input::placeholder{color:#6E877D}
+  .btn{border-radius:12px;border:2px solid var(--linea);background:var(--pizarron-alto);color:var(--tiza);padding:10px 12px;text-align:left;line-height:1.15;transition:transform .08s ease,background .12s ease}
+  .btn:hover{background:#204036}
+  .btn:active{transform:translateY(2px)}
+  .btn kbd{display:inline-block;font-family:'Archivo',monospace;font-size:11px;background:var(--pizarron-hondo);border:1px solid var(--linea);border-radius:5px;padding:1px 5px;color:var(--tiza-tenue)}
+  .btn-oro{background:var(--amarillo);color:#241B00;border-color:#B8920F}
+  .btn-oro:hover{background:#FFDD5C}
+  .btn-oro kbd{background:rgba(0,0,0,.18);border-color:rgba(0,0,0,.25);color:#241B00}
+  .btn-rojo{border-color:#7A2028;color:#FF8C97}
+  .btn-rojo:hover{background:#33161A}
+
+  .scroll::-webkit-scrollbar{width:10px}
+  .scroll::-webkit-scrollbar-thumb{background:var(--linea);border-radius:8px}
+  .scroll::-webkit-scrollbar-track{background:transparent}
+
+  @media (prefers-reduced-motion: reduce){
+    .a-pop,.a-revelar,.a-sacudir,.a-banner,.a-latido,.a-sello,.a-brillo,.a-subir,.a-flash,.confeti{animation-duration:.01ms !important;animation-iteration-count:1 !important}
+  }
+`;
+
+/* ══════════════════════════════════════════════════════════════════
+   PIEZAS DE LA VISTA PÚBLICA
+   ══════════════════════════════════════════════════════════════════ */
+
+function Marcador({ marcador }) {
+  return (
+    <div className="flex items-stretch gap-1.5 shrink-0">
+      <Lado etiqueta="CHAT" valor={marcador.chat} color="var(--verde)" />
+      <div className="display text-[15px] self-center" style={{ color: "var(--tiza-tenue)" }}>vs</div>
+      <Lado etiqueta="PROFE" valor={marcador.profe} color="var(--rojo)" />
+    </div>
+  );
+}
+function Lado({ etiqueta, valor, color }) {
+  return (
+    <div className="px-2 py-0.5 rounded-xl text-center" style={{ background: "var(--pizarron-hondo)", border: "2px solid " + color }}>
+      <div className="text-[11px] tracking-[.14em]" style={{ color: "var(--tiza-tenue)" }}>{etiqueta}</div>
+      <div key={valor} className="display num text-[22px] leading-none a-pop" style={{ color }}>{valor}</div>
+    </div>
+  );
+}
+
+function MedidorNota({ errores }) {
+  const pct = Math.max(0, (VIDAS_MAX - errores) / VIDAS_MAX) * 100;
+  const nota = NOTAS[Math.min(errores, NOTAS.length - 1)];
+  const color = errores <= 1 ? "var(--verde)" : errores <= 3 ? "var(--amarillo)" : "var(--rojo)";
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-[104px] shrink-0">
+      <div className="text-[11px] tracking-[.18em]" style={{ color: "var(--tiza-tenue)" }}>NOTA</div>
+      <div className="flex items-end gap-2">
+        <div className="relative w-[26px] h-[88px] rounded-full overflow-hidden"
+             style={{ background: "var(--pizarron-hondo)", border: "2px solid var(--linea)" }}>
+          <div className="absolute bottom-0 left-0 right-0 transition-all duration-500"
+               style={{ height: pct + "%", background: color }} />
+          {/* La raya de pasar: 3.0 */}
+          <div className="absolute left-0 right-0" style={{ bottom: "50%", borderTop: "2px dashed rgba(242,237,220,.75)" }} />
+        </div>
+        <div className="flex flex-col justify-between h-[88px] py-[2px] text-[10px] num" style={{ color: "var(--tiza-tenue)" }}>
+          <span>5.0</span><span>3.0</span><span>0.0</span>
+        </div>
+      </div>
+      <div key={nota} className="display num text-[30px] leading-none a-pop" style={{ color }}>{nota}</div>
+    </div>
+  );
+}
+
+function Estudiante({ errores }) {
+  const e = errores;
+  const tiza = "#F2EDDC";
+  const on = (k) => (e >= k ? 1 : 0.09);
+  const trazo = { stroke: tiza, strokeWidth: 7, strokeLinecap: "round", fill: "none" };
+
+  const boca =
+    e <= 2 ? "M88 62 Q100 72 112 62" :
+    e <= 4 ? "M88 65 H112" :
+             "M88 69 Q100 57 112 69";
+
+  return (
+    <svg viewBox="0 0 200 206" className="h-[132px] w-[132px]" role="img"
+         aria-label={"Estudiante con " + e + " de 6 errores"}>
+      {/* 1 · el pupitre */}
+      <g opacity={on(1)}>
+        <path d="M28 150 H172" {...trazo} strokeWidth="9" stroke="#FFD028" />
+        <path d="M44 155 V196" {...trazo} stroke="#FFD028" />
+        <path d="M156 155 V196" {...trazo} stroke="#FFD028" />
+      </g>
+      {/* 2 · la cabeza */}
+      <g opacity={on(2)}>
+        <circle cx="100" cy="52" r="25" {...trazo} />
+        {e >= 6 ? (
+          <g stroke={tiza} strokeWidth="5" strokeLinecap="round">
+            <path d="M85 43 L95 53" /><path d="M95 43 L85 53" />
+            <path d="M105 43 L115 53" /><path d="M115 43 L105 53" />
+          </g>
+        ) : (
+          <g fill={tiza}>
+            <circle cx="91" cy="48" r="3.6" /><circle cx="109" cy="48" r="3.6" />
+          </g>
+        )}
+        <path d={boca} stroke={tiza} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+      </g>
+      {/* 3 · el torso */}
+      <g opacity={on(3)}><path d="M100 77 V134" {...trazo} strokeWidth="8" /></g>
+      {/* 4 · los brazos */}
+      <g opacity={on(4)}>
+        <path d="M100 93 L66 122" {...trazo} />
+        <path d="M100 93 L134 122" {...trazo} />
+      </g>
+      {/* 5 · el cuaderno y el lápiz */}
+      <g opacity={on(5)}>
+        <rect x="74" y="132" width="52" height="17" rx="3" fill="#F2EDDC" />
+        <path d="M80 140 H120" stroke="#0F1F19" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M132 128 L146 142" stroke="#FFD028" strokeWidth="6" strokeLinecap="round" />
+      </g>
+      {/* 6 · el café volcado */}
+      <g opacity={on(6)}>
+        <path d="M38 138 q6 -16 20 -16 q14 0 18 16 z" fill="#FF3B4E" />
+        <ellipse cx="52" cy="149" rx="30" ry="5" fill="#FF3B4E" opacity=".7" />
+        <path d="M118 24 q8 -12 16 0" stroke="#FF3B4E" strokeWidth="4" fill="none" strokeLinecap="round" opacity={e >= 5 ? 1 : 0} />
+      </g>
+      {/* el sello */}
+      {e >= 6 && (
+        <g className="a-sello" style={{ transformOrigin: "140px 60px" }}>
+          <circle cx="140" cy="60" r="34" fill="none" stroke="#FF3B4E" strokeWidth="6" />
+          <text x="140" y="72" textAnchor="middle" className="display num" fontSize="34" fill="#FF3B4E">0.0</text>
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function Vidas({ vidas }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-[104px] shrink-0">
+      <div className="text-[11px] tracking-[.18em]" style={{ color: "var(--tiza-tenue)" }}>VIDAS</div>
+      <div key={vidas} className="display num text-[54px] leading-none a-latido"
+           style={{ color: vidas <= 2 ? "var(--rojo)" : vidas <= 4 ? "var(--amarillo)" : "var(--verde)" }}>
+        {vidas}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {Array.from({ length: VIDAS_MAX }).map((_, i) => (
+          <div key={i} className="w-[22px] h-[9px] rounded-full transition-colors duration-300"
+               style={{
+                 background: i < vidas ? "var(--verde)" : "transparent",
+                 border: "2px solid " + (i < vidas ? "var(--verde)" : "var(--linea)")
+               }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Palabra({ palabra, acertadas, mostrarTodo }) {
+  const totalLetras = soloLetras(palabra).length;
+  const tam =
+    totalLetras <= 7 ? 72 :
+    totalLetras <= 10 ? 60 :
+    totalLetras <= 14 ? 50 :
+    totalLetras <= 19 ? 40 :
+    totalLetras <= 25 ? 33 : 27;
+
+  const grupos = palabra.split(" ").filter(Boolean);
+
+  return (
+    <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 px-3">
+      {grupos.map((g, gi) => (
+        <div key={gi} className="flex items-end" style={{ gap: Math.max(3, tam * 0.09) }}>
+          {Array.from(g).map((c, i) => {
+            const letra = esLetra(c);
+            const visible = !letra || mostrarTodo || acertadas.indexOf(norm(c)) >= 0;
+            return (
+              <div key={i} className="flex flex-col items-center"
+                   style={{ width: tam * 0.72, minWidth: 16 }}>
+                <div className="display leading-none flex items-end justify-center"
+                     style={{ fontSize: tam, height: tam * 1.05, color: "var(--tiza)" }}>
+                  {visible ? (
+                    <span key={String(visible)} className={letra ? "a-revelar" : ""}
+                          style={{ display: "inline-block" }}>
+                      {c.toUpperCase()}
+                    </span>
+                  ) : <span>&nbsp;</span>}
+                </div>
+                {letra && (
+                  <div style={{
+                    width: "100%", height: Math.max(4, tam * 0.09),
+                    borderRadius: 99,
+                    background: visible ? "var(--verde)" : "var(--tiza-tenue)",
+                    marginTop: 4, transition: "background .3s"
+                  }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Teclado({ acertadas, falladas, onLetra }) {
+  return (
+    <div className="grid gap-[5px] px-2" style={{ gridTemplateColumns: "repeat(9, minmax(0,1fr))" }}>
+      {ABC.map((L) => {
+        const ok = acertadas.indexOf(L) >= 0;
+        const mal = falladas.indexOf(L) >= 0;
+        const bg = ok ? "var(--verde)" : mal ? "var(--rojo)" : "var(--pizarron-alto)";
+        const fg = ok || mal ? "#0A1611" : "var(--tiza-tenue)";
+        return (
+          <button key={L} onClick={() => onLetra(L)}
+                  className={"display rounded-[7px] h-[26px] text-[17px] leading-none " + (ok || mal ? "a-pop" : "")}
+                  style={{ background: bg, color: fg, border: "2px solid " + (ok || mal ? bg : "var(--linea)"),
+                           opacity: mal ? 0.85 : 1, textDecoration: mal ? "line-through" : "none" }}>
+            {L}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Lideres({ lideres }) {
+  const top = Object.keys(lideres)
+    .map((k) => lideres[k])
+    .sort((a, b) => b.pts - a.pts || b.palabras - a.palabras)
+    .slice(0, 5);
+
+  const medalla = ["🥇", "🥈", "🥉", "4°", "5°"];
+  // Siempre 5 ranuras: el alto no depende de cuánta gente haya puntuado, así
+  // el tablero nunca crece hacia la franja que tapa el chat.
+  const filas = Array.from({ length: 5 }, (_, i) => top[i] || null);
+
+  return (
+    <div className="panel rounded-2xl px-3 py-2 mx-2 flex flex-col" style={{ height: 146 }}>
+      <div className="flex items-baseline justify-between mb-1 shrink-0">
+        <span className="text-[12px] tracking-[.18em]" style={{ color: "var(--amarillo)" }}>SALÓN DE LA FAMA</span>
+        <span className="text-[11px]" style={{ color: "var(--tiza-tenue)" }}>letra 10 · palabra 50</span>
+      </div>
+
+      {top.length === 0 ? (
+        <div className="tiza-mano text-[24px] flex-1 flex items-center justify-center text-center"
+             style={{ color: "var(--tiza-tenue)" }}>
+          Nadie ha dicho una letra todavía…
+        </div>
+      ) : (
+        <div className="flex flex-col gap-[1px]">
+          {filas.map((p, i) => p ? (
+            <div key={p.nombre + i} className="flex items-center gap-2 rounded-lg px-2"
+                 style={{ height: 20, background: i === 0 ? "rgba(255,208,40,.14)" : "transparent" }}>
+              <span className="w-[22px] text-[14px] text-center">{medalla[i]}</span>
+              <span className="display text-[15px] truncate flex-1"
+                    style={{ color: i === 0 ? "var(--amarillo)" : "var(--tiza)" }}>@{p.nombre}</span>
+              <span className="text-[11px] num" style={{ color: "var(--tiza-tenue)" }}>
+                {p.letras}L {p.palabras ? p.palabras + "P" : ""}
+              </span>
+              <span className="display num text-[18px] w-[48px] text-right" style={{ color: "var(--verde)" }}>{p.pts}</span>
+            </div>
+          ) : (
+            <div key={"vacia" + i} style={{ height: 20 }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Pie de autoría: última fila de la zona segura, así sí sale en cámara. */
+function Credito() {
+  return (
+    <div className="flex items-center self-center gap-3 rounded-2xl"
+         style={{ padding: "4px 16px 4px 5px", background: "rgba(3,12,8,.6)",
+                  border: "1px solid rgba(242,237,220,.14)" }}>
+      <img src={LOGO} alt="" width="160" height="160"
+           style={{ width: 30, height: 30, borderRadius: 999, display: "block",
+                    border: "1px solid rgba(255,90,80,.55)",
+                    boxShadow: "0 0 10px rgba(255,59,48,.5)" }} />
+      <span style={{ fontSize: 15, fontWeight: 800, color: "var(--tiza)", whiteSpace: "nowrap" }}>
+        {CREDITO.autor}
+      </span>
+    </div>
+  );
+}
+
+function Banner({ evento }) {
+  if (!evento) return null;
+
+  // El posicionamiento vive en el envoltorio; la animación, adentro.
+  // Si van en el mismo nodo, el `transform` del keyframe pisa al del centrado.
+  const Caja = ({ fondo, tinta, children }) => (
+    <div className="absolute left-0 right-0 top-0 z-20 flex justify-center px-3 pointer-events-none">
+      <div className="a-banner w-full rounded-2xl px-4 py-2.5 text-center shadow-2xl overflow-hidden"
+           style={{ background: fondo, color: tinta, border: "3px solid #0A1611" }}>
+        {children}
+      </div>
+    </div>
+  );
+
+  if (evento.tipo === "acierto") {
+    return (
+      <Caja fondo="var(--verde)" tinta="#062713">
+        <div className="flex items-center justify-center gap-3 min-w-0">
+          <span className="display text-[46px] leading-none a-latido shrink-0">{evento.letra}</span>
+          <div className="text-left min-w-0">
+            <div className="display text-[24px] leading-tight truncate">@{evento.nombre}</div>
+            <div className="text-[15px]">
+              {evento.veces > 1 ? "¡" + evento.veces + " veces! " : "¡Va! "}+10 puntos
+            </div>
+          </div>
+        </div>
+      </Caja>
+    );
+  }
+  if (evento.tipo === "regalo") {
+    return (
+      <Caja fondo="var(--amarillo)" tinta="#241B00">
+        <div className="display text-[19px] leading-tight">🎁 NUEVO SEGUIDOR</div>
+        <div className="display text-[26px] leading-tight truncate">
+          {evento.nombre ? "@" + evento.nombre + " · " : ""}regalo: {evento.letra}
+        </div>
+      </Caja>
+    );
+  }
+  if (evento.tipo === "palabra") {
+    return (
+      <Caja fondo="var(--verde)" tinta="#062713">
+        <div className="display text-[19px] leading-tight">¡LA DIJO COMPLETA!</div>
+        <div className="display text-[28px] leading-tight truncate">@{evento.nombre} · +50</div>
+      </Caja>
+    );
+  }
+  // fallo y fallo-palabra
+  return (
+    <Caja fondo="var(--rojo)" tinta="#2A0006">
+      <div className="flex items-center justify-center gap-3 min-w-0">
+        {evento.letra && <span className="display text-[42px] leading-none shrink-0">{evento.letra}</span>}
+        <div className="text-left min-w-0">
+          <div className="display text-[21px] leading-tight truncate">
+            @{evento.nombre} {evento.tipo === "fallo-palabra" ? "falló la palabra" : "falló"}
+          </div>
+          {evento.frase && (
+            <div className="tiza-mano text-[26px] leading-tight" style={{ overflowWrap: "anywhere" }}>
+              “{evento.frase}”
+            </div>
+          )}
+        </div>
+      </div>
+    </Caja>
+  );
+}
+
+function Confeti({ semilla }) {
+  const piezas = useMemo(() => {
+    const colores = ["#FFD028", "#2FD46E", "#F2EDDC", "#FF3B4E"];
+    return Array.from({ length: 40 }).map((_, i) => ({
+      i,
+      left: Math.random() * 100,
+      delay: Math.random() * 1.4,
+      dur: 2.2 + Math.random() * 1.8,
+      w: 8 + Math.random() * 10,
+      h: 12 + Math.random() * 14,
+      color: colores[i % colores.length]
+    }));
+  }, [semilla]);
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {piezas.map((p) => (
+        <div key={p.i} className="confeti"
+             style={{ left: p.left + "%", width: p.w, height: p.h, background: p.color,
+                      animationDelay: p.delay + "s", animationDuration: p.dur + "s" }} />
+      ))}
+    </div>
+  );
+}
+
+function Final({ st }) {
+  const gano = st.estado === "ganada";
+  const largo = soloLetras(st.palabra).length;
+  return (
+    <div className="absolute inset-0 z-30 flex flex-col items-center px-5 text-center"
+         style={{ background: gano ? "rgba(6,39,19,.94)" : "rgba(42,0,6,.94)" }}>
+      {gano && <Confeti semilla={st.n} />}
+      {/* La celebración se centra en la zona segura, no en los 960px:
+          el tercio de abajo lo tapa el chat de TikTok. */}
+      <div className="a-pop relative z-10 w-full flex flex-col justify-center" style={{ height: ZONA_SEGURA }}>
+        <div className="display text-[30px] leading-tight" style={{ color: gano ? "var(--verde)" : "var(--rojo)" }}>
+          {gano ? "¡GANÓ EL CHAT!" : "GANÓ EL PROFE"}
+        </div>
+        <div className={"display leading-tight my-3 px-2 " + (gano ? "a-brillo" : "")}
+             style={{
+               color: "var(--tiza)",
+               overflowWrap: "anywhere",
+               fontSize: largo <= 10 ? 46 : largo <= 16 ? 38 : largo <= 22 ? 31 : 25
+             }}>
+          {st.palabra.toUpperCase()}
+        </div>
+        {gano ? (
+          <div className="display text-[24px] truncate" style={{ color: "var(--amarillo)" }}>
+            la cerró @{st.cerro}
+          </div>
+        ) : (
+          <div className="display text-[19px]" style={{ color: "var(--tiza-tenue)" }}>
+            nadie la sacó
+          </div>
+        )}
+        <div className="tiza-mano text-[40px] leading-tight mt-4 px-2" style={{ color: gano ? "var(--verde)" : "var(--rojo)" }}>
+          “{st.frase}”
+        </div>
+        <div className="text-[13px] mt-4" style={{ color: "var(--tiza-tenue)" }}>— el profe</div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VISTA PÚBLICA (el escenario 9:16)
+   ══════════════════════════════════════════════════════════════════ */
+
+function Escenario({ st, onLetra, chroma, guias }) {
+  const cat = st.cats[st.ci];
+  const errores = VIDAS_MAX - st.vidas;
+  const cajaRef = useRef(null);
+  const fallo = st.evento && (st.evento.tipo === "fallo" || st.evento.tipo === "fallo-palabra");
+  const idFallo = fallo ? st.evento.id : 0;
+
+  // Sacudida por animación directa, no por `key`: con `key` React desmontaba
+  // y reconstruía el tablero entero en cada error (y otra vez al apagarse).
+  useEffect(() => {
+    if (!idFallo) return;
+    const el = cajaRef.current;
+    if (!el || !el.animate) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    el.animate(
+      [{ transform: "translateX(0)" }, { transform: "translateX(-14px)" }, { transform: "translateX(13px)" },
+       { transform: "translateX(-9px)" }, { transform: "translateX(8px)" }, { transform: "translateX(0)" }],
+      { duration: 480, easing: "ease" }
+    );
+  }, [idFallo]);
+
+  return (
+    <div className={"relative overflow-hidden " + (chroma ? "chroma-" + chroma : "pizarron")}
+         style={{ width: 540, height: 960 }}>
+      <div ref={cajaRef} className="h-full">
+
+        {/* ZONA SEGURA — todo lo importante vive aquí arriba */}
+        <div className="flex flex-col" style={{ height: ZONA_SEGURA }}>
+
+          {/* Encabezado */}
+          <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+            <div className="text-[12px] tracking-[.24em]" style={{ color: "var(--tiza-tenue)" }}>
+              AHORCADO DEL ING
+            </div>
+            <Marcador marcador={st.marcador} />
+          </div>
+          <div className="display leading-none px-3 pt-1 pb-1.5 truncate"
+               style={{ color: "var(--amarillo)", fontSize: cat.nombre.length > 21 ? 23 : 27 }}>
+            {cat.emoji} {cat.nombre}
+          </div>
+          <div className="mx-3 mb-1" style={{ height: 3, background: "var(--linea)", borderRadius: 99 }} />
+
+          {/* Nota · estudiante · vidas */}
+          <div className="flex items-center justify-between px-3" style={{ height: 146 }}>
+            <MedidorNota errores={errores} />
+            <Estudiante errores={errores} />
+            <Vidas vidas={st.vidas} />
+          </div>
+
+          {/* Palabra + banner de evento */}
+          <div className="relative flex-1 flex items-center justify-center min-h-[108px]">
+            <Palabra palabra={st.palabra} acertadas={st.acertadas} mostrarTodo={st.estado === "perdida"} />
+            <Banner evento={st.evento} />
+          </div>
+
+          {/* Teclado del chat */}
+          <div className="pb-2">
+            <div className="text-[11px] tracking-[.2em] text-center mb-1.5" style={{ color: "var(--tiza-tenue)" }}>
+              LETRAS QUE YA SALIERON
+            </div>
+            <Teclado acertadas={st.acertadas} falladas={st.falladas} onLetra={onLetra} />
+          </div>
+
+          {/* Tabla de líderes */}
+          <div className="pb-1.5"><Lideres lideres={st.lideres} /></div>
+
+          {/* Pie de autoría */}
+          <div className="flex justify-center pb-2"><Credito /></div>
+        </div>
+
+        {/* BANDA INFERIOR — la tapa el chat de TikTok, va el llamado a comentar */}
+        <div className="relative flex flex-col items-center justify-start pt-4 px-4" style={{ height: 960 - ZONA_SEGURA }}>
+          {guias && (
+            <div className="absolute left-0 right-0 top-0 flex items-center gap-2 px-3">
+              <div className="flex-1" style={{ height: 2, background: "var(--rojo)" }} />
+              <span className="text-[10px] tracking-[.16em]" style={{ color: "var(--rojo)" }}>
+                AQUÍ EMPIEZA EL CHAT DE TIKTOK
+              </span>
+              <div className="flex-1" style={{ height: 2, background: "var(--rojo)" }} />
+            </div>
+          )}
+          <div className="display text-[34px] leading-tight text-center a-subir" style={{ color: "var(--tiza)" }}>
+            GRITA TU LETRA
+          </div>
+          <div className="display text-[22px] leading-tight text-center" style={{ color: "var(--amarillo)" }}>
+            👇 UNA LETRA POR COMENTARIO 👇
+          </div>
+          <div className="tiza-mano text-[30px] mt-2 text-center" style={{ color: "var(--tiza-tenue)" }}>
+            si aciertas sumas 10 · si la dices completa, 50
+          </div>
+        </div>
+
+        {/* Aviso corto del operador (letra repetida, etc.) */}
+        {st.aviso && (
+          <div key={st.aviso.id} className="a-pop absolute left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 z-20"
+               style={{ top: ZONA_SEGURA - 36, background: "var(--pizarron-hondo)", border: "2px solid var(--amarillo)", color: "var(--amarillo)" }}>
+            <span className="display text-[16px]">{st.aviso.texto}</span>
+          </div>
+        )}
+
+        {/* Fin de ronda */}
+        {(st.estado === "ganada" || st.estado === "perdida") && <Final st={st} />}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PANEL DEL OPERADOR
+   ══════════════════════════════════════════════════════════════════ */
+
+function Campo({ etiqueta, children }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] tracking-[.14em] mb-1" style={{ color: "var(--tiza-tenue)" }}>{etiqueta}</span>
+      {children}
+    </label>
+  );
+}
+
+function Boton({ onClick, tecla, children, tono }) {
+  const clase = "btn w-full flex items-center justify-between gap-2 text-[14px] " +
+    (tono === "oro" ? "btn-oro " : tono === "rojo" ? "btn-rojo " : "");
+  return (
+    <button className={clase} onClick={onClick}>
+      <span>{children}</span>
+      {tecla && <kbd>{tecla}</kbd>}
+    </button>
+  );
+}
+
+function Panel(props) {
+  const { st, dispatch, nombre, setNombre, refs, chroma, ciclarChroma, guias, setGuias,
+          onCombo, onRegalo, onAdivinar, onAgregar, cerrar, armado } = props;
+
+  const [combo, setCombo] = useState("");
+  const [intento, setIntento] = useState("");
+  const [nomIntento, setNomIntento] = useState("");
+  const [nueva, setNueva] = useState("");
+  const [catNueva, setCatNueva] = useState(st.ci);
+
+  return (
+    <aside className="h-full w-full flex flex-col" style={{ background: "var(--pizarron-hondo)", borderLeft: "3px solid var(--linea)" }}>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "3px solid var(--linea)" }}>
+        <div>
+          <div className="display text-[19px]" style={{ color: "var(--amarillo)" }}>PANEL DEL PROFE</div>
+          <div className="text-[11px]" style={{ color: "var(--tiza-tenue)" }}>solo tú ves esto</div>
+        </div>
+        <button className="btn text-[13px] px-3 py-2" onClick={cerrar}>Ocultar <kbd>O</kbd></button>
+      </div>
+
+      <div className="scroll flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-4">
+
+        {/* La palabra, para el operador */}
+        <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,208,40,.1)", border: "2px solid var(--amarillo)" }}>
+          <div className="text-[11px] tracking-[.14em]" style={{ color: "var(--amarillo)" }}>LA PALABRA ES</div>
+          <div className="display text-[22px] leading-tight" style={{ color: "var(--tiza)" }}>{st.palabra.toUpperCase()}</div>
+          <div className="text-[11px] mt-0.5" style={{ color: "var(--tiza-tenue)" }}>
+            {st.cats[st.ci].nombre} · quedan {st.colas[st.ci].length} en la baraja
+          </div>
+        </div>
+
+        {/* Entrada rápida */}
+        <div className="flex flex-col gap-2">
+          <Campo etiqueta="LETRA + USUARIO · ENTER">
+            <input ref={refs.letra} value={combo}
+                   onChange={(e) => setCombo(e.target.value)}
+                   onKeyDown={(e) => {
+                     if (e.key === "Enter") { onCombo(combo); setCombo(""); }
+                   }}
+                   placeholder="a juan99   ·   juan99 a   ·   a"
+                   className="w-full px-3 py-3 text-[22px] display" autoFocus />
+          </Campo>
+          <div className="text-[11px] leading-snug" style={{ color: "var(--tiza-tenue)" }}>
+            Escribe la letra y el usuario en el mismo campo, en cualquier orden. Si solo escribes la letra,
+            el crédito va al usuario fijo de abajo.
+          </div>
+          <Campo etiqueta="USUARIO FIJO (SE RECUERDA)">
+            <input value={nombre} onChange={(e) => setNombre(e.target.value)}
+                   placeholder="El chat" className="w-full px-3 py-2 text-[16px]" />
+          </Campo>
+        </div>
+
+        <Boton onClick={onRegalo} tecla="F1" tono="oro">🎁 Nuevo seguidor · Revelar letra</Boton>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Boton onClick={() => dispatch({ type: "NUEVA" })} tecla="F2">Nueva palabra</Boton>
+          <Boton onClick={() => dispatch({ type: "NUEVA" })} tecla="F3">Saltar palabra</Boton>
+          <Boton onClick={() => dispatch({ type: "CATEGORIA", ci: st.ci + 1 })} tecla="F4">Otra categoría</Boton>
+          <Boton onClick={() => dispatch({ type: "REINICIAR_RONDA" })} tecla="F9">Reiniciar ronda</Boton>
+          <Boton onClick={ciclarChroma} tecla="F8">
+            {chroma === "" ? "Fondo chroma" : chroma === "verde" ? "Chroma verde → magenta" : "Chroma magenta → quitar"}
+          </Boton>
+          <Boton onClick={() => setGuias(!guias)} tecla="G">{guias ? "Ocultar guía" : "Guía de encuadre"}</Boton>
+        </div>
+
+        {/* Adivinar la palabra completa */}
+        <div className="panel rounded-xl p-3 flex flex-col gap-2">
+          <div className="display text-[15px]" style={{ color: "var(--verde)" }}>ALGUIEN LA DIJO COMPLETA (+50)</div>
+          <input ref={refs.palabra} value={intento} onChange={(e) => setIntento(e.target.value)}
+                 onKeyDown={(e) => { if (e.key === "Enter") refs.nomPalabra.current && refs.nomPalabra.current.focus(); }}
+                 placeholder="la palabra completa" className="w-full px-3 py-2 text-[16px]" />
+          <div className="flex gap-2">
+            <input ref={refs.nomPalabra} value={nomIntento} onChange={(e) => setNomIntento(e.target.value)}
+                   onKeyDown={(e) => {
+                     if (e.key === "Enter") { onAdivinar(intento, nomIntento); setIntento(""); setNomIntento(""); }
+                   }}
+                   placeholder="usuario" className="flex-1 px-3 py-2 text-[16px]" />
+            <button className="btn text-[14px] px-4"
+                    onClick={() => { onAdivinar(intento, nomIntento); setIntento(""); setNomIntento(""); }}>
+              Enviar
+            </button>
+          </div>
+          <div className="text-[11px]" style={{ color: "var(--tiza-tenue)" }}>Si falla, le cuesta una vida al chat.</div>
+        </div>
+
+        {/* Categorías */}
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[11px] tracking-[.14em]" style={{ color: "var(--tiza-tenue)" }}>CATEGORÍAS</div>
+          {st.cats.map((c, i) => (
+            <button key={c.nombre} onClick={() => dispatch({ type: "CATEGORIA", ci: i })}
+                    className="btn text-[13px] flex items-center justify-between"
+                    style={i === st.ci ? { borderColor: "var(--amarillo)", color: "var(--amarillo)" } : null}>
+              <span>{c.emoji} {c.nombre}</span>
+              <span className="num text-[11px]" style={{ color: "var(--tiza-tenue)" }}>{c.palabras.length}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Agregar palabra en vivo */}
+        <div className="panel rounded-xl p-3 flex flex-col gap-2">
+          <div className="display text-[15px]" style={{ color: "var(--amarillo)" }}>AGREGAR PALABRA EN VIVO</div>
+          <select value={catNueva} onChange={(e) => setCatNueva(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-[14px]">
+            {st.cats.map((c, i) => <option key={c.nombre} value={i}>{c.nombre}</option>)}
+          </select>
+          <div className="flex gap-2">
+            <input ref={refs.agregar} value={nueva} onChange={(e) => setNueva(e.target.value)}
+                   onKeyDown={(e) => {
+                     if (e.key === "Enter") { onAgregar(catNueva, nueva); setNueva(""); }
+                   }}
+                   placeholder="la nueva palabra o frase" className="flex-1 px-3 py-2 text-[16px]" />
+            <button className="btn text-[14px] px-4"
+                    onClick={() => { onAgregar(catNueva, nueva); setNueva(""); }}>Añadir</button>
+          </div>
+          <div className="text-[11px]" style={{ color: "var(--tiza-tenue)" }}>Entra de primera en la baraja de esa categoría.</div>
+        </div>
+
+        <Boton onClick={() => dispatch({ type: "REINICIAR_PARTIDA" })} tecla="Alt+R" tono="rojo">
+          {armado ? "¿Seguro? Vuelve a pulsar Alt+R" : "Reiniciar partida (borra marcador y tabla)"}
+        </Boton>
+
+        {/* Atajos */}
+        <div className="panel rounded-xl p-3">
+          <div className="text-[11px] tracking-[.14em] mb-2" style={{ color: "var(--tiza-tenue)" }}>ATAJOS</div>
+          <div className="grid grid-cols-[64px_1fr] gap-y-1 text-[12px]" style={{ color: "var(--tiza)" }}>
+            {[["Enter", "enviar letra"], ["F1", "regalo de seguidor"], ["F2 / F3", "nueva · saltar"],
+              ["F4", "otra categoría"], ["F6", "adivinar completa"], ["F7", "agregar palabra"],
+              ["F8", "chroma key"], ["F9", "reiniciar ronda"], ["F10 / O", "ocultar panel"],
+              ["G", "guía de encuadre"], ["Alt+R ×2", "reiniciar partida"], ["Esc", "volver al campo"]
+            ].map(([k, v]) => (
+              <React.Fragment key={k}>
+                <kbd style={{ background: "var(--pizarron-hondo)", border: "1px solid var(--linea)", borderRadius: 5,
+                              padding: "1px 5px", fontSize: 11, color: "var(--amarillo)", justifySelf: "start" }}>{k}</kbd>
+                <span style={{ color: "var(--tiza-tenue)" }}>{v}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   APP
+   ══════════════════════════════════════════════════════════════════ */
+
+function JuegoAhorcadoDelIng() {
+  const [st, dispatch] = useReducer(reducer, undefined, inicial);
+  const [panel, setPanel] = useState(true);
+  const [chroma, setChroma] = useState("");   // "" | "verde" | "magenta"
+  const [guias, setGuias] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [armado, setArmado] = useState(false);
+  const [escala, setEscala] = useState(1);
+
+  const cajaRef = useRef(null);
+  const refs = {
+    letra: useRef(null),
+    palabra: useRef(null),
+    nomPalabra: useRef(null),
+    agregar: useRef(null)
+  };
+  const nombreRef = useRef("");
+  nombreRef.current = nombre;
+  const stRef = useRef(st);
+  stRef.current = st;
+
+  // Escalar el escenario 9:16 al espacio disponible
+  useEffect(() => {
+    const medir = () => {
+      const c = cajaRef.current;
+      if (!c) return;
+      const r = c.getBoundingClientRect();
+      setEscala(Math.max(0.1, Math.min(r.width / 540, r.height / 960)));
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(medir) : null;
+    if (ro && cajaRef.current) ro.observe(cajaRef.current);
+    return () => { window.removeEventListener("resize", medir); if (ro) ro.disconnect(); };
+  }, [panel]);
+
+  // Los banners y avisos se apagan solos
+  useEffect(() => {
+    if (!st.evento) return;
+    const id = st.evento.id;
+    const t = setTimeout(() => dispatch({ type: "LIMPIAR_EVENTO", id }), 3600);
+    return () => clearTimeout(t);
+  }, [st.evento]);
+
+  useEffect(() => {
+    if (!st.aviso) return;
+    const id = st.aviso.id;
+    const t = setTimeout(() => dispatch({ type: "LIMPIAR_AVISO", id }), 2200);
+    return () => clearTimeout(t);
+  }, [st.aviso]);
+
+  const ciclarChroma = useCallback(() => {
+    setChroma((v) => LLAVES[(LLAVES.indexOf(v) + 1) % LLAVES.length]);
+  }, []);
+
+  const foco = useCallback(() => {
+    if (refs.letra.current) refs.letra.current.focus();
+  }, []);
+
+  const enviarLetra = useCallback((letra, quien) => {
+    dispatch({ type: "LETRA", letra, nombre: quien || nombreRef.current });
+    foco();
+  }, [foco]);
+
+  // "a juan99" o "juan99 a" o solo "a"
+  const onCombo = useCallback((crudo) => {
+    const t = String(crudo || "").trim().replace(/\s+/g, " ");
+    if (!t) return;
+    const partes = t.split(" ");
+    let letra = null, quien = null;
+    if (partes.length === 1) {
+      if (partes[0].length === 1) letra = partes[0];
+    } else {
+      const pri = partes[0], ult = partes[partes.length - 1];
+      if (pri.length === 1) { letra = pri; quien = partes.slice(1).join(" "); }
+      else if (ult.length === 1) { letra = ult; quien = partes.slice(0, -1).join(" "); }
+    }
+    if (!letra || !esLetra(letra)) { foco(); return; }
+    if (quien) setNombre(limpiarNombre(quien));
+    enviarLetra(letra, quien);
+  }, [enviarLetra, foco]);
+
+  const onRegalo = useCallback(() => {
+    dispatch({ type: "REGALO", nombre: nombreRef.current });
+    foco();
+  }, [foco]);
+
+  const onAdivinar = useCallback((palabra, quien) => {
+    if (!String(palabra || "").trim()) return;
+    dispatch({ type: "PALABRA", palabra, nombre: quien || nombreRef.current });
+    foco();
+  }, [foco]);
+
+  const onAgregar = useCallback((ci, palabra) => {
+    if (!String(palabra || "").trim()) return;
+    dispatch({ type: "AGREGAR", ci, palabra });
+  }, []);
+
+  // Atajos globales
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = (e.target && e.target.tagName || "").toLowerCase();
+      const escribiendo = tag === "input" || tag === "textarea" || tag === "select";
+      const k = e.key;
+
+      if (e.altKey && (k === "r" || k === "R")) {
+        e.preventDefault();
+        if (armado) { dispatch({ type: "REINICIAR_PARTIDA" }); setArmado(false); }
+        else { setArmado(true); setTimeout(() => setArmado(false), 3000); }
+        return;
+      }
+
+      switch (k) {
+        case "F1": e.preventDefault(); onRegalo(); break;
+        case "F2": e.preventDefault(); dispatch({ type: "NUEVA" }); foco(); break;
+        case "F3": e.preventDefault(); dispatch({ type: "NUEVA" }); foco(); break;
+        case "F4": e.preventDefault(); dispatch({ type: "CATEGORIA", ci: stRef.current.ci + 1 }); foco(); break;
+        case "F6": e.preventDefault(); setPanel(true); setTimeout(() => refs.palabra.current && refs.palabra.current.focus(), 30); break;
+        case "F7": e.preventDefault(); setPanel(true); setTimeout(() => refs.agregar.current && refs.agregar.current.focus(), 30); break;
+        case "F8": e.preventDefault(); ciclarChroma(); break;
+        case "F9": e.preventDefault(); dispatch({ type: "REINICIAR_RONDA" }); foco(); break;
+        case "F10": e.preventDefault(); setPanel((v) => !v); break;
+        case "Escape": e.preventDefault(); setPanel(true); setTimeout(foco, 30); break;
+        default:
+          if (!escribiendo) {
+            if (k === "o" || k === "O") { e.preventDefault(); setPanel((v) => !v); }
+            else if (k === "g" || k === "G") { e.preventDefault(); setGuias((v) => !v); }
+            else if (esLetra(k) && k.length === 1) { e.preventDefault(); enviarLetra(k); }
+          }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [armado, onRegalo, foco, enviarLetra, ciclarChroma]);
+
+  useEffect(() => { foco(); }, [foco]);
+
+  return (
+    <div className="ahorcado w-screen h-screen flex">
+      <style>{CSS}</style>
+
+      {/* Escenario: esto es lo único que se captura en OBS */}
+      <div ref={cajaRef} className="flex-1 relative overflow-hidden">
+        <div style={{
+          position: "absolute", left: "50%", top: "50%",
+          transform: "translate(-50%, -50%) scale(" + escala + ")",
+          transformOrigin: "center center"
+        }}>
+          <Escenario st={st} onLetra={(L) => enviarLetra(L)} chroma={chroma} guias={guias} />
+        </div>
+
+        {!panel && (
+          <button onClick={() => setPanel(true)}
+                  className="btn absolute bottom-3 right-3 text-[12px] px-3 py-2 opacity-40 hover:opacity-100">
+            Panel <kbd>O</kbd>
+          </button>
+        )}
+      </div>
+
+      {/* Panel del operador: fuera del escenario */}
+      {panel && (
+        <div className="shrink-0" style={{ width: 400, maxWidth: "92vw" }}>
+          <Panel
+            st={st} dispatch={dispatch} nombre={nombre} setNombre={setNombre} refs={refs}
+            chroma={chroma} ciclarChroma={ciclarChroma} guias={guias} setGuias={setGuias}
+            onCombo={onCombo} onRegalo={onRegalo} onAdivinar={onAdivinar} onAgregar={onAgregar}
+            cerrar={() => setPanel(false)} armado={armado}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default JuegoAhorcadoDelIng;
